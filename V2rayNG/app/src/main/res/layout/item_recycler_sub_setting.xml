@@ -113,7 +113,6 @@
 
                     </LinearLayout>
 
-
                 </LinearLayout>
 
             </LinearLayout>
@@ -157,12 +156,32 @@
 
             </LinearLayout>
 
+            <!-- بخش جدید برای نمایش وضعیت ترافیک و تاریخ انقضا -->
+            <LinearLayout
+                android:id="@+id/layout_traffic_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/padding_spacing_dp8"
+                android:orientation="horizontal"
+                android:paddingStart="@dimen/padding_spacing_dp8"
+                android:paddingEnd="@dimen/padding_spacing_dp8">
+
+                <TextView
+                    android:id="@+id/tv_traffic_info"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Caption"
+                    android:textColor="?android:attr/textColorSecondary"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
             <LinearLayout
                 android:id="@+id/layout_last_updated"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
                 android:layout_marginTop="@dimen/padding_spacing_dp8"
+                android:orientation="horizontal"
                 android:paddingStart="@dimen/padding_spacing_dp8"
                 android:paddingEnd="@dimen/padding_spacing_dp8">
 
@@ -170,7 +189,7 @@
                     android:id="@+id/tv_last_updated"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Caption"/>
+                    android:textAppearance="@style/TextAppearance.AppCompat.Caption" />
 
             </LinearLayout>
 
