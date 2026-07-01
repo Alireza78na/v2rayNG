@@ -553,9 +553,11 @@ object AngConfigManager {
             val proxyUsername = SettingsManager.getSocksUsername()
             val proxyPassword = SettingsManager.getSocksPassword()
 
+            var headerValue: String? = null
+
             var configText = try {
                 val httpPort = SettingsManager.getHttpPort()
-                HttpUtil.getUrlContentWithUserAgent(
+                val (content, header) = HttpUtil.getSubscriptionContent(
                     UrlContentRequest(
                         url = url,
                         userAgent = userAgent,
@@ -565,25 +567,49 @@ object AngConfigManager {
                         proxyPassword = proxyPassword
                     )
                 )
+                headerValue = header
+                content
             } catch (e: Exception) {
                 LogUtil.e(AppConfig.ANG_PACKAGE, "Update subscription: proxy not ready or other error", e)
                 ""
             }
+
             if (configText.isEmpty()) {
                 configText = try {
-                    HttpUtil.getUrlContentWithUserAgent(
+                    val (content, header) = HttpUtil.getSubscriptionContent(
                         UrlContentRequest(
                             url = url,
                             userAgent = userAgent
                         )
                     )
+                    headerValue = header
+                    content
                 } catch (e: Exception) {
                     LogUtil.e(AppConfig.TAG, "Update subscription: Failed to get URL content with user agent", e)
                     ""
                 }
             }
+
             if (configText.isEmpty()) {
                 return SubscriptionUpdateResult(failureCount = 1)
+            }
+
+            // پردازش ایمن هدر Subscription-Userinfo
+            if (!headerValue.isNullOrBlank()) {
+                val regex = Regex("""(upload|download|total|expire)=(\d+)""")
+                val infoMap = regex.findAll(headerValue).associate { match ->
+                    match.groupValues[1] to (match.groupValues[2].toLongOrNull() ?: 0L)
+                }
+                
+                it.subscription.upload = infoMap["upload"] ?: 0L
+                it.subscription.download = infoMap["download"] ?: 0L
+                it.subscription.total = infoMap["total"] ?: 0L
+                it.subscription.expire = infoMap["expire"] ?: 0L
+            } else {
+                it.subscription.upload = 0L
+                it.subscription.download = 0L
+                it.subscription.total = 0L
+                it.subscription.expire = 0L
             }
 
             val count = parseConfigViaSub(configText, it.guid, false)
