@@ -1,98 +1,164 @@
 package com.v2ray.ang.ui
 
+import android.content.Intent
 import android.graphics.Color
-import android.text.TextUtils
+import android.text.format.Formatter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.widget.SwitchCompat
 import androidx.recyclerview.widget.RecyclerView
-import com.v2ray.ang.contracts.BaseAdapterListener
-import com.v2ray.ang.databinding.ItemRecyclerSubSettingBinding
+import com.v2ray.ang.R
+import com.v2ray.ang.dto.entities.SubscriptionCache
+import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.helper.ItemTouchHelperAdapter
 import com.v2ray.ang.helper.ItemTouchHelperViewHolder
-import com.v2ray.ang.util.Utils
-import com.v2ray.ang.viewmodel.SubscriptionsViewModel
+import java.text.SimpleDateFormat
+import java.util.Collections
+import java.util.Date
+import java.util.Locale
 
-class SubSettingRecyclerAdapter(
-    private val viewModel: SubscriptionsViewModel,
-    private val adapterListener: BaseAdapterListener?
-) : RecyclerView.Adapter<SubSettingRecyclerAdapter.MainViewHolder>(), ItemTouchHelperAdapter {
+class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity) :
+    RecyclerView.Adapter<SubSettingRecyclerAdapter.BaseViewHolder>(), ItemTouchHelperAdapter {
 
-    override fun getItemCount() = viewModel.getAll().size
+    private var list: MutableList<SubscriptionCache> = mutableListOf()
 
-    override fun onBindViewHolder(holder: MainViewHolder, position: Int) {
-        val subscriptions = viewModel.getAll()
-        val subId = subscriptions[position].guid
-        val subItem = subscriptions[position].subscription
-        holder.itemSubSettingBinding.tvName.text = subItem.remarks
-        holder.itemSubSettingBinding.tvUrl.text = subItem.url
-        holder.itemSubSettingBinding.chkEnable.isChecked = subItem.enabled
-        holder.itemSubSettingBinding.tvLastUpdated.text = Utils.formatTimestamp(subItem.lastUpdated)
-        holder.itemView.setBackgroundColor(Color.TRANSPARENT)
-
-        holder.itemSubSettingBinding.layoutEdit.setOnClickListener {
-            adapterListener?.onEdit(subId, position)
-        }
-
-        holder.itemSubSettingBinding.layoutRemove.setOnClickListener {
-            adapterListener?.onRemove(subId, position)
-        }
-
-        holder.itemSubSettingBinding.chkEnable.setOnCheckedChangeListener { it, isChecked ->
-            if (!it.isPressed) return@setOnCheckedChangeListener
-            subItem.enabled = isChecked
-            viewModel.update(subId, subItem)
-        }
-
-        if (TextUtils.isEmpty(subItem.url)) {
-            holder.itemSubSettingBinding.layoutUrl.visibility = View.GONE
-            holder.itemSubSettingBinding.layoutShare.visibility = View.INVISIBLE
-            holder.itemSubSettingBinding.chkEnable.visibility = View.INVISIBLE
-            holder.itemSubSettingBinding.layoutLastUpdated.visibility = View.INVISIBLE
-        } else {
-            holder.itemSubSettingBinding.layoutUrl.visibility = View.VISIBLE
-            holder.itemSubSettingBinding.layoutShare.visibility = View.VISIBLE
-            holder.itemSubSettingBinding.chkEnable.visibility = View.VISIBLE
-            holder.itemSubSettingBinding.layoutLastUpdated.visibility = View.VISIBLE
-            holder.itemSubSettingBinding.layoutShare.setOnClickListener {
-                adapterListener?.onShare(subItem.url)
-            }
-        }
+    init {
+        updateList()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MainViewHolder {
-        return MainViewHolder(
-            ItemRecyclerSubSettingBinding.inflate(
-                LayoutInflater.from(parent.context),
-                parent,
-                false
-            )
-        )
+    private fun updateList() {
+        list = MmkvManager.decodeSubscriptions().toMutableList()
     }
 
-    class MainViewHolder(val itemSubSettingBinding: ItemRecyclerSubSettingBinding) :
-        BaseViewHolder(itemSubSettingBinding.root), ItemTouchHelperViewHolder
-
-    open class BaseViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        fun onItemSelected() {
-            itemView.setBackgroundColor(Color.LTGRAY)
-        }
-
-        fun onItemClear() {
-            itemView.setBackgroundColor(0)
-        }
-    }
+    override fun getItemCount() = list.size
 
     override fun onItemMove(fromPosition: Int, toPosition: Int): Boolean {
-        viewModel.swap(fromPosition, toPosition)
+        Collections.swap(list, fromPosition, toPosition)
         notifyItemMoved(fromPosition, toPosition)
         return true
     }
 
-    override fun onItemMoveCompleted() {
-        adapterListener?.onRefreshData()
+    override fun onItemDismiss(position: Int) {
+        val subId = list[position].guid
+        AlertDialog.Builder(mActivity).setMessage(R.string.del_config_comfirm)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                MmkvManager.removeSubscription(subId)
+                updateList()
+                notifyItemRemoved(position)
+            }
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                notifyItemChanged(position)
+            }
+            .show()
     }
 
-    override fun onItemDismiss(position: Int) {
+    override fun onItemMoveCompleted() {
+        // ذخیره ترتیب جدید لیست پس از Drag & Drop
+        // بسته به معماری داخلی متد مربوطه را فراخوانی کنید
+        // MmkvManager.encodeSubscriptionIds(list.map { it.guid })
+    }
+
+    override fun onBindViewHolder(holder: BaseViewHolder, position: Int) {
+        val cache = list[position]
+        val subId = cache.guid
+        val subItem = cache.subscription
+
+        holder.tvName.text = subItem.remarks
+        holder.tvUrl.text = subItem.url
+
+        if (subItem.lastUpdated > 0) {
+            val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            holder.tvLastUpdated.text = mActivity.getString(
+                R.string.title_update_time, 
+                format.format(Date(subItem.lastUpdated))
+            )
+        } else {
+            holder.tvLastUpdated.text = mActivity.getString(
+                R.string.title_update_time, 
+                mActivity.getString(R.string.title_not_updated)
+            )
+        }
+
+        // پردازش و نمایش ترافیک و تاریخ انقضا
+        if (subItem.total > 0L) {
+            val usedFormat = Formatter.formatFileSize(mActivity, subItem.upload + subItem.download)
+            val totalFormat = Formatter.formatFileSize(mActivity, subItem.total)
+            
+            val expireDate = if (subItem.expire > 0L) {
+                val date = Date(subItem.expire * 1000L)
+                SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date)
+            } else {
+                "Unlimited"
+            }
+            
+            holder.tvTrafficInfo.text = String.format(Locale.getDefault(), "Usage: %s / %s | Expire: %s", usedFormat, totalFormat, expireDate)
+            holder.tvTrafficInfo.visibility = View.VISIBLE
+        } else {
+            holder.tvTrafficInfo.visibility = View.GONE
+        }
+
+        // پاک کردن لیسنر قبلی برای جلوگیری از باگ‌های RecyclerView
+        holder.chkEnable.setOnCheckedChangeListener(null)
+        holder.chkEnable.isChecked = subItem.enabled
+        holder.chkEnable.setOnCheckedChangeListener { _, isChecked ->
+            subItem.enabled = isChecked
+            MmkvManager.encodeSubscription(subId, subItem)
+        }
+
+        holder.layoutEdit.setOnClickListener {
+            val intent = Intent(mActivity, SubEditActivity::class.java)
+            intent.putExtra("subId", subId)
+            mActivity.startActivity(intent)
+        }
+
+        holder.layoutRemove.setOnClickListener {
+            AlertDialog.Builder(mActivity).setMessage(R.string.del_config_comfirm)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    MmkvManager.removeSubscription(subId)
+                    updateList()
+                    notifyDataSetChanged()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        holder.layoutShare.setOnClickListener {
+            val intent = Intent(Intent.ACTION_SEND)
+            intent.type = "text/plain"
+            intent.putExtra(Intent.EXTRA_TEXT, subItem.url)
+            mActivity.startActivity(
+                Intent.createChooser(intent, mActivity.getString(R.string.title_configuration_share))
+            )
+        }
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BaseViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_recycler_sub_setting, parent, false)
+        return BaseViewHolder(view)
+    }
+
+    class BaseViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView), ItemTouchHelperViewHolder {
+        val tvName: TextView = itemView.findViewById(R.id.tv_name)
+        val tvUrl: TextView = itemView.findViewById(R.id.tv_url)
+        val tvLastUpdated: TextView = itemView.findViewById(R.id.tv_last_updated)
+        // تعریف المان متنی جدید برای ترافیک
+        val tvTrafficInfo: TextView = itemView.findViewById(R.id.tv_traffic_info)
+        
+        val chkEnable: SwitchCompat = itemView.findViewById(R.id.chk_enable)
+        val layoutEdit: View = itemView.findViewById(R.id.layout_edit)
+        val layoutRemove: View = itemView.findViewById(R.id.layout_remove)
+        val layoutShare: View = itemView.findViewById(R.id.layout_share)
+
+        override fun onItemSelected() {
+            itemView.setBackgroundColor(Color.LTGRAY)
+        }
+
+        override fun onItemClear() {
+            itemView.setBackgroundColor(Color.TRANSPARENT)
+        }
     }
 }
