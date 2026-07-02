@@ -15,12 +15,13 @@ import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.helper.ItemTouchHelperAdapter
 import com.v2ray.ang.helper.ItemTouchHelperViewHolder
+import com.v2ray.ang.viewmodel.SubscriptionsViewModel
 import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
 import java.util.Locale
 
-class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity) :
+class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity, val viewModel: SubscriptionsViewModel) :
     RecyclerView.Adapter<SubSettingRecyclerAdapter.BaseViewHolder>(), ItemTouchHelperAdapter {
 
     private var list: MutableList<SubscriptionCache> = mutableListOf()
@@ -41,6 +42,10 @@ class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity) :
         return true
     }
 
+    override fun onItemMoveCompleted() {
+        // این متد برای جلوگیری از خطای Interface اجباری است
+    }
+
     override fun onItemDismiss(position: Int) {
         val subId = list[position].guid
         AlertDialog.Builder(mActivity).setMessage(R.string.del_config_comfirm)
@@ -55,12 +60,6 @@ class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity) :
             .show()
     }
 
-    override fun onItemMoveCompleted() {
-        // ذخیره ترتیب جدید لیست پس از Drag & Drop
-        // بسته به معماری داخلی متد مربوطه را فراخوانی کنید
-        // MmkvManager.encodeSubscriptionIds(list.map { it.guid })
-    }
-
     override fun onBindViewHolder(holder: BaseViewHolder, position: Int) {
         val cache = list[position]
         val subId = cache.guid
@@ -71,15 +70,9 @@ class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity) :
 
         if (subItem.lastUpdated > 0) {
             val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-            holder.tvLastUpdated.text = mActivity.getString(
-                R.string.title_update_time, 
-                format.format(Date(subItem.lastUpdated))
-            )
+            holder.tvLastUpdated.text = format.format(Date(subItem.lastUpdated))
         } else {
-            holder.tvLastUpdated.text = mActivity.getString(
-                R.string.title_update_time, 
-                mActivity.getString(R.string.title_not_updated)
-            )
+            holder.tvLastUpdated.text = "Not updated"
         }
 
         // پردازش و نمایش ترافیک و تاریخ انقضا
@@ -100,7 +93,6 @@ class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity) :
             holder.tvTrafficInfo.visibility = View.GONE
         }
 
-        // پاک کردن لیسنر قبلی برای جلوگیری از باگ‌های RecyclerView
         holder.chkEnable.setOnCheckedChangeListener(null)
         holder.chkEnable.isChecked = subItem.enabled
         holder.chkEnable.setOnCheckedChangeListener { _, isChecked ->
@@ -145,7 +137,6 @@ class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity) :
         val tvName: TextView = itemView.findViewById(R.id.tv_name)
         val tvUrl: TextView = itemView.findViewById(R.id.tv_url)
         val tvLastUpdated: TextView = itemView.findViewById(R.id.tv_last_updated)
-        // تعریف المان متنی جدید برای ترافیک
         val tvTrafficInfo: TextView = itemView.findViewById(R.id.tv_traffic_info)
         
         val chkEnable: SwitchCompat = itemView.findViewById(R.id.chk_enable)
