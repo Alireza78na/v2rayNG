@@ -46,6 +46,9 @@ android {
                 "proguard-rules.pro"
             )
         }
+        getByName("debug") {
+            applicationIdSuffix = ".debug"
+        }
     }
 
     flavorDimensions.add("distribution")
