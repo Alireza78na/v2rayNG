@@ -1,7 +1,7 @@
 name: Build Debug APK
 
 on:
-  workflow_dispatch: # این خط اجازه می‌دهد اکشن را به صورت دستی اجرا کنید
+  workflow_dispatch:
   push:
     branches:
       - master
@@ -15,18 +15,24 @@ jobs:
       - name: Checkout Code and Submodules
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive' # بسیار مهم برای دریافت سورس کدهای Xray
+          submodules: 'recursive'
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22' # نسخه استاندارد Go برای کامپایل هسته
+          go-version: '1.22'
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      - name: Download libv2ray AAR
+        run: |
+          mkdir -p ./V2rayNG/app/libs
+          curl -L -o ./V2rayNG/app/libs/libv2ray.aar https://github.com/2dust/AndroidLibXrayLite/releases/latest/download/libv2ray.aar
+          curl -L -o ./V2rayNG/app/libs/libv2ray-sources.jar https://github.com/2dust/AndroidLibXrayLite/releases/latest/download/libv2ray-sources.jar
 
       - name: Make Gradlew Executable
         working-directory: ./V2rayNG
@@ -40,4 +46,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: v2rayNG-debug-apk
-          path: V2rayNG/app/build/outputs/apk/debug/*.apk
+          path: V2rayNG/app/build/outputs/apk/**/*.apk
