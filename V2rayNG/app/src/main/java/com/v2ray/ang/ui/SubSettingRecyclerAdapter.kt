@@ -55,12 +55,6 @@ class SubSettingRecyclerAdapter(val mActivity: SubSettingActivity) :
             .show()
     }
 
-    override fun onItemMoveCompleted() {
-        // ذخیره ترتیب جدید لیست پس از Drag & Drop
-        // بسته به معماری داخلی متد مربوطه را فراخوانی کنید
-        // MmkvManager.encodeSubscriptionIds(list.map { it.guid })
-    }
-
     override fun onBindViewHolder(holder: BaseViewHolder, position: Int) {
         val cache = list[position]
         val subId = cache.guid
